@@ -7,17 +7,38 @@ export default function ScanPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if this device already has a token
-    const savedToken = localStorage.getItem("myToken");
-    const savedStatus = localStorage.getItem("myStatus");
+    const checkExisting = async () => {
+      const savedToken = localStorage.getItem("myToken");
 
-    // If token exists and not done → redirect to user page
-    if (savedToken && savedStatus !== "done") {
-      navigate(`/user/${savedToken}`);
-    }
+      if (savedToken) {
+        const snapshot = await get(ref(db, "queue"));
+        if (snapshot.exists()) {
+          const entries = Object.values(snapshot.val());
+          const found = entries.find((e) => e.token === parseInt(savedToken));
+
+          if (found && found.status !== "done") {
+            // Token still active → redirect no matter what name they type
+            navigate(`/user/${savedToken}`);
+            return;
+          } else {
+            // Token done or queue reset → clear device
+            localStorage.removeItem("myToken");
+            localStorage.removeItem("myStatus");
+          }
+        } else {
+          // Queue empty → clear device
+          localStorage.removeItem("myToken");
+          localStorage.removeItem("myStatus");
+        }
+      }
+      setChecking(false);
+    };
+
+    checkExisting();
   }, []);
 
   const handleJoin = async () => {
@@ -25,6 +46,23 @@ export default function ScanPage() {
       setError("Please enter your name");
       return;
     }
+
+    // Double check device doesn't already have active token
+    const savedToken = localStorage.getItem("myToken");
+    if (savedToken) {
+      const snapshot = await get(ref(db, "queue"));
+      if (snapshot.exists()) {
+        const entries = Object.values(snapshot.val());
+        const found = entries.find((e) => e.token === parseInt(savedToken));
+        if (found && found.status !== "done") {
+          navigate(`/user/${savedToken}`);
+          return;
+        }
+      }
+      localStorage.removeItem("myToken");
+      localStorage.removeItem("myStatus");
+    }
+
     setLoading(true);
     setError("");
 
@@ -32,7 +70,6 @@ export default function ScanPage() {
       const queueRef = ref(db, "queue");
       const snapshot = await get(queueRef);
 
-      // Assign new token
       const allEntries = snapshot.exists() ? Object.values(snapshot.val()) : [];
       const maxToken = allEntries.length > 0 ? Math.max(...allEntries.map((e) => e.token)) : 0;
       const token = maxToken + 1;
@@ -44,7 +81,7 @@ export default function ScanPage() {
         joinedAt: Date.now(),
       });
 
-      // Save token to this device
+      // Lock this device
       localStorage.setItem("myToken", token);
       localStorage.setItem("myStatus", "waiting");
 
@@ -55,6 +92,15 @@ export default function ScanPage() {
       setLoading(false);
     }
   };
+
+  // Show loading while checking device token
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 to-cyan-700 flex items-center justify-center">
+        <div className="text-white text-xl animate-pulse">Please wait...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-cyan-700 flex items-center justify-center p-4">
@@ -95,7 +141,7 @@ export default function ScanPage() {
 
           <div className="mt-6 flex items-center gap-3 bg-blue-50 rounded-xl p-4">
             <span className="text-2xl">ℹ️</span>
-            <p className="text-blue-700 text-sm">You will receive a token number. Stay on the next page — we'll notify you when it's your turn!</p>
+            <p className="text-blue-700 text-sm">One token per device. You can only join again after your visit is complete!</p>
           </div>
         </div>
 
