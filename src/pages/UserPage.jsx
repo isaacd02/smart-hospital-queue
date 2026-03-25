@@ -14,7 +14,6 @@ export default function UserPage() {
   const playBell = () => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // First bell
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.connect(gain1);
@@ -25,7 +24,6 @@ export default function UserPage() {
       gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
       osc1.start(ctx.currentTime);
       osc1.stop(ctx.currentTime + 0.8);
-      // Second bell
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.connect(gain2);
@@ -56,6 +54,12 @@ export default function UserPage() {
       setQueue(waiting);
       setCurrentToken(current ? current.token : null);
 
+      // Update localStorage status when done
+      if (me && me.status === "done") {
+        localStorage.setItem("myStatus", "done");
+      }
+
+      // Bell notification when it's your turn
       if (current && current.token === parseInt(token) && !notified) {
         setNotified(true);
         playBell();
@@ -110,6 +114,7 @@ export default function UserPage() {
       </div>
 
       <div className="max-w-md mx-auto space-y-4">
+
         {/* My Turn Alert */}
         {isMyTurn && (
           <div className="bg-green-400 rounded-3xl p-6 text-center shadow-2xl animate-pulse">
@@ -119,16 +124,21 @@ export default function UserPage() {
           </div>
         )}
 
+        {/* Done Card */}
         {isDone && (
-          <div className="bg-gray-500 rounded-3xl p-6 text-center shadow-2xl">
+          <div className="bg-gray-600 rounded-3xl p-6 text-center shadow-2xl">
             <div className="text-5xl mb-2">✅</div>
             <h2 className="text-2xl font-bold text-white">Visit Complete</h2>
-            <p className="text-gray-200 mt-1">Thank you for visiting MediCare Clinic</p>
+            <p className="text-gray-200 mt-2">Thank you for visiting MediCare Clinic</p>
             <button
-              onClick={() => window.location.href = "/"}
-              className="mt-4 bg-white text-gray-700 font-bold px-6 py-2 rounded-xl hover:bg-gray-100 transition"
+              onClick={() => {
+                localStorage.removeItem("myToken");
+                localStorage.removeItem("myStatus");
+                window.location.href = "/";
+              }}
+              className="mt-4 bg-white text-gray-700 font-bold px-6 py-3 rounded-xl hover:bg-gray-100 transition"
             >
-              Join Again →
+              🔄 Scan Again for New Token
             </button>
           </div>
         )}
