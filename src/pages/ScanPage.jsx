@@ -21,26 +21,30 @@ export default function ScanPage() {
       const queueRef = ref(db, "queue");
       const snapshot = await get(queueRef);
       let existingToken = null;
+      let alreadyDone = false;
 
       if (snapshot.exists()) {
         const data = snapshot.val();
         Object.values(data).forEach((entry) => {
-          // Only reuse token if still waiting or current (NOT done)
-          if (
-            entry.name.toLowerCase() === name.trim().toLowerCase() &&
-            (entry.status === "waiting" || entry.status === "current")
-          ) {
-            existingToken = entry.token;
+          if (entry.name.toLowerCase() === name.trim().toLowerCase()) {
+            if (entry.status === "waiting" || entry.status === "current") {
+              // Still in queue — redirect to same token
+              existingToken = entry.token;
+            } else if (entry.status === "done") {
+              // Visit completed — allow new token
+              alreadyDone = true;
+            }
           }
         });
       }
 
+      // If still waiting or with doctor → show same token
       if (existingToken) {
         navigate(`/user/${existingToken}`);
         return;
       }
 
-      // Assign new token based on total ever joined (not just waiting)
+      // Assign new token
       const allEntries = snapshot.exists() ? Object.values(snapshot.val()) : [];
       const maxToken = allEntries.length > 0 ? Math.max(...allEntries.map((e) => e.token)) : 0;
       const token = maxToken + 1;
@@ -103,7 +107,7 @@ export default function ScanPage() {
 
           <div className="mt-6 flex items-center gap-3 bg-blue-50 rounded-xl p-4">
             <span className="text-2xl">ℹ️</span>
-            <p className="text-blue-700 text-sm">You will receive a token number. Stay on the next page — we'll notify you when it's your turn!</p>
+            <p className="text-blue-700 text-sm">If you already joined, enter the same name to see your token!</p>
           </div>
         </div>
 
